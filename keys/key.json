@@ -1,0 +1,7 @@
+{
+  "kid": "SignatureService",
+  "alg": "RS256",
+  "kty": "RSA",
+  "typ": "JWT",
+  "jku": "https://raw.githubusercontent.com/fpad/trusted-list/master/jku-test/some-other-jku-not-trusted.json"
+}
