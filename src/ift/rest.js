@@ -46,12 +46,12 @@ class REST {
             "apikey": "",
             "grant_type": "urn:ibm:params:oauth:grant-type:apikey"
         };
-        self._iam_returned_url = "https://fs-identity-proxy-integration.mybluemix.net/exchange_token/v1/organization/[organizationid]";
+        self._iam_returned_url = "https://fs-identity-proxy-integration.mybluemix.net/exchange_token/v1/organization/" + self._organization_id;
         self._IAM_TOKEN = {}; 
 
         /* onboarding token related */
         /* this is the one used to interact with IFT API */
-        self._onboarding_path = "https://fs-identity-proxy-integration.mybluemix.net/exchange_token/v1/organization/[organizationid]]";
+        self._onboarding_path = "https://fs-identity-proxy-integration.mybluemix.net/exchange_token/v1/organization/" + self._organization_id;
         self._onboarding_header = {"Content-Type": "application/json"};
         self._ONBOARDING_TOKEN = ""; 
 
