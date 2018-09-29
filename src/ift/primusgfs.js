@@ -18,6 +18,8 @@
 module.exports = {
     // All primus GFS audits should have this type:
     _type: 'application/vnd.trellis.audit.primusgfs.1+json',
+
+    _id: "trellis://<domain>/resources/<id>",
   
     // A unique identifier for this certification chain of documents.  All documents
     // that reference the same inspection should have the same certificationid

@@ -140,18 +140,19 @@ class REST {
 
     /**
      * maps the prmusgfs format to IFT data model
+     * include the trellis resource id in the primusgfs
+     * "trellis://<domain>/resources/<id>"
      * @param {*} _primusgfs 
      */
     _mapOada2Hyperledger(_primusgfs){
         let self = this;
-        //console.log(_primusgfs);
-        self._certificate_template.addendumsComments = "trellis-certification-test-03";
+        self._certificate_template.addendumsComments = _primusgfs._id;
         self._certificate_template.auditStartDate = self._compareDates(_primusgfs.conditions_during_audit.FSMS_observed_date, 
                                                                        _primusgfs.conditions_during_audit.operation_observed_date);
-        self._certificate_template.auditType = _primusgfs.certifying_body.name;
-        self._certificate_template.auditedBy = _primusgfs.certifying_body.auditor.name;
+        self._certificate_template.auditType = ""; //_primusgfs.scheme.name + " " + _primusgfs.scheme.version;
+        self._certificate_template.auditedBy = _primus.certifying_body.auditor;
         self._certificate_template.certificateReferenceNumber = _primusgfs.certificationid.id;
-        self._certificate_template.certificationStatus = _primusgfs.score.final.value > 95 ? "valid" : "invalid";
+        self._certificate_template.certificationStatus = "valid"; //need to find this
         self._certificate_template.scheme = _primusgfs.scheme.name;
         self._certificate_template.schemeOwner = _primusgfs.scheme.name;
         self._certificate_template.scope = self._getScopeDescription(_primusgfs.scope);
