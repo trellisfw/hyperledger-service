@@ -36,22 +36,22 @@ class REST {
         self._onboarding_file_name = "./onboarding_token";
 
         /* oraganization id */
-        self._organization_id = "c6cf401e-3d53-4353-85f8-37e4324504ea";
+        self._organization_id = "";
         /* IAM_TOKEN related */
         self._iam_path = "https://iam.ng.bluemix.net/oidc/token";
         self._iam_header = {"Content-Type": "application/x-www-form-urlencoded"};
-        self._api_key = "NpjjvJtggno3uJ2au7Gb7NZxu05ncRPKaJGlPjZnnJeL";
+        self._api_key = "";
         self._grant_type = "urn:ibm:params:oauth:grant-type:apikey";
         self._iam_body = {
-            "apikey": "NpjjvJtggno3uJ2au7Gb7NZxu05ncRPKaJGlPjZnnJeL",
+            "apikey": "",
             "grant_type": "urn:ibm:params:oauth:grant-type:apikey"
         };
-        self._iam_returned_url = "https://fs-identity-proxy-integration.mybluemix.net/exchange_token/v1/organization/c6cf401e-3d53-4353-85f8-37e4324504ea";
+        self._iam_returned_url = "https://fs-identity-proxy-integration.mybluemix.net/exchange_token/v1/organization/[organizationid]";
         self._IAM_TOKEN = {}; 
 
         /* onboarding token related */
         /* this is the one used to interact with IFT API */
-        self._onboarding_path = "https://fs-identity-proxy-integration.mybluemix.net/exchange_token/v1/organization/c6cf401e-3d53-4353-85f8-37e4324504ea";
+        self._onboarding_path = "https://fs-identity-proxy-integration.mybluemix.net/exchange_token/v1/organization/[organizationid]]";
         self._onboarding_header = {"Content-Type": "application/json"};
         self._ONBOARDING_TOKEN = ""; 
 
