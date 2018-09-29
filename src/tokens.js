@@ -1,6 +1,6 @@
 const Promise = require('bluebird');
 const readFile = Promise.promisify(require("fs").readFile);
-const debug = require('debug')('trellis-signature-service:tokens');
+const debug = require('debug')('trellisfw-service-ibmfoodtrust:tokens');
 
 const config = require('../config.js');
 

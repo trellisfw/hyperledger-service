@@ -1,13 +1,35 @@
 {
-  "name": "hyperledger-service",
+  "name": "trellisfw-service-ibmfoodtrust",
   "version": "0.1.0",
   "main": "index.js",
-  "license": "MIT",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/trellisfw/trellisfw-service-ibmfoodtrust.git"
+  },
+  "keywords": [
+    "trellisfw",
+    "oada",
+    "food",
+    "safety",
+    "food",
+    "safety",
+    "audit",
+    "hyperledger"
+  ],
+  "author": "Sam Noel",
+  "bugs": {
+    "url": "https://github.com/trellisfw/trellisfw-service-ibmfoodtrust/issues"
+  },
+  "homepage": "https://github.com/trellisfw/trellisfw-service-ibmfoodtrust#readme",
+  "license": "Apache-2.0",
   "dependencies": {
     "axios": "^0.18.0",
     "bluebird": "^3.5.2",
     "debug": "^4.0.1",
-    "fpad-signatures": "^0.1.3",
+    "@trellisfw/signatures": "^0.1.8",
     "lodash": "^4.17.11"
   }
 }
