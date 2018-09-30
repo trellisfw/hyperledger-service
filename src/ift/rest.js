@@ -83,29 +83,6 @@ class REST {
           "scope": "Agents and Brokers: 01 – Raw milk and prepared foods"
         }
 
-        self._certificate_test = {
-            "addendumsComments": "Test",
-            "announced": "Announced",
-            "auditRating": "Grade A",
-            "auditReferenceNumber": "dc6c0edd1b009be80fe7130cccd9b0dd",
-            "auditScore": "NA",
-            "auditStartDate": "2018-07-01",
-            "auditType": "NA",
-            "auditedBy": "test",
-            "certificateReferenceNumber": "81865f679afd39ba1543244eee910b79",
-            "certificationStatus": "valid",
-            "comments": "comment",
-            "expiryDate": "2019-01-01",
-            "issueDate": "2018-08-16",
-            "locationGLNList": [
-              "0728612177445"
-            ],
-            "productHandlingIncluded": "false",
-            "scheme": "BRC Global Standard for Food Safety",
-            "schemeOwner": "BRC",
-            "scope": "Agents and Brokers: 01 – Raw meat, fish and prepared foods"
-          }
-
         self._certificate_id = '668d6fb0a6f4aa602a7c45cc00e309f6';
 
         self._certificate_delete_path_leftover = "/attachments/certificate";
@@ -144,18 +121,21 @@ class REST {
      * "trellis://<domain>/resources/<id>"
      * @param {*} _primusgfs 
      */
-    _mapOada2Hyperledger(_primusgfs){
+    _mapOada2Hyperledger(_audit, _certificate){
         let self = this;
-        self._certificate_template.addendumsComments = _primusgfs._id;
-        self._certificate_template.auditStartDate = self._compareDates(_primusgfs.conditions_during_audit.FSMS_observed_date, 
-                                                                       _primusgfs.conditions_during_audit.operation_observed_date);
-        self._certificate_template.auditType = ""; //_primusgfs.scheme.name + " " + _primusgfs.scheme.version;
+        let gln = [];
+        self._certificate_template.addendumsComments = _audit._id;
+        self._certificate_template.auditStartDate = self._compareDates(_audit.conditions_during_audit.FSMS_observed_date, 
+                                                                       _audit.conditions_during_audit.operation_observed_date);
+        self._certificate_template.auditType = ""; //_audit.scheme.name + " " + _audit.scheme.version;
         self._certificate_template.auditedBy = _primus.certifying_body.auditor;
-        self._certificate_template.certificateReferenceNumber = _primusgfs.certificationid.id;
+        self._certificate_template.certificateReferenceNumber = _audit.certificationid.id;
         self._certificate_template.certificationStatus = "valid"; //need to find this
-        self._certificate_template.scheme = _primusgfs.scheme.name;
-        self._certificate_template.schemeOwner = _primusgfs.scheme.name;
-        self._certificate_template.scope = self._getScopeDescription(_primusgfs.scope);
+        self._certificate_template.scheme = _audit.scheme.name;
+        self._certificate_template.schemeOwner = _audit.scheme.name;
+        self._certificate_template.scope = self._getScopeDescription(_audit.scope);
+        gln.push(_certificate.gln ? _certificate.gln : _audit.gln);
+        self._certificate_template.locationGLNList = gln;
 
         return self._certificate_template;
     }//_mapOada2Hyperledger

@@ -35,9 +35,9 @@ class IFT extends REST{
      * add a new certificate in the ledger
      * it converts the prmiusgfs format to IFT format
      * then it send the content to the IFT
-     * @param {*} _primusgfs 
+     * @param {*} _audit, _certificate  
      */
-    putCertificate(_primusgfs){
+    putCertificate(_audit, _certificate){
         let self = this;
         console.log("[ADDING] - [CERTIFICATE]");
         if(self._connected){
@@ -45,7 +45,8 @@ class IFT extends REST{
                 self._buildCertificatesHeader();
             }
 
-            return self.post(self._certificates_path, self._certificates_header, "", self._mapOada2Hyperledger(_primusgfs)).then((response) => {
+            return self.post(self._certificates_path, self._certificates_header, "", 
+                             self._mapOada2Hyperledger(_audit, _certificate)).then((response) => {
                 //console.log('newCertificate', response);
                 return Promise.resolve(response.data.certificationId);
             }).catch((err) => {

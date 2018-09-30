@@ -62,6 +62,7 @@ module.exports = {
         // location can also contain latitude, longitude, altitude as decimal numbers
       },
       phone: "0000000000",
+      gln: "0728612177446"
     },
   
     // Scope: what sorts of things does this audit cover (operation, products, etc.)  
