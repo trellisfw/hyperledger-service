@@ -44,7 +44,7 @@ function getDocsForHyperledger({token}) {
       // - if they haven't been pushed already (do not contain a '/_meta/hyperledger_id' key)
       // - if both the certificate and audit are signed.
       // - if both the certificate and audit's signatures are verified.
-      // - if either the certificate or the audit have a `operation.gln` key under `organization`
+      // - if either the certificate or the audit have a `organization.gln` key
 
       //Get the certification to check if it has been pushed already
       return axios({
