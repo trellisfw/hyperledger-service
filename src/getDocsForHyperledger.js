@@ -12,6 +12,16 @@ const debug = require('debug')('trellis-signature-service:getDocsForHyperledger'
   '/_meta/hyperledger_id'
 */
 
+function isSignedAndValid(doc) {
+  return Promise.try(() => {
+    const signatures = _.get(doc, 'signatures');
+    if (signatures == null || !_.isArray(certSignatures) || certSignatures.length == 0) {
+      throw new Error('Not signed.');
+    }
+    return verify(doc);
+  })
+}
+
 function getDocsForHyperledger({token}) {
   /*
     Get /bookmarks/certifications
@@ -27,53 +37,65 @@ function getDocsForHyperledger({token}) {
     //Extract only list of certification ids
     var certKeys = _.filter(Object.keys(response.data), key=>(_.startsWith(key, '_')===false));
     return Promise.map(certKeys, (key) => {
-      return Promise.join(
-        //Add certification to list if it IS signed and does NOT have a '/_meta/hyperledger_id' key
-        axios({
-          method: 'GET',
-          url: config.api+'/bookmarks/certifications/'+key,
-          headers: {
-            Authorization: 'Bearer '+token
-          }
-        }).then((response) => {
-          const hyperledgerId = _.get(response, 'data._meta.hyperledger_id');
-          const signatures = _.get(response, 'data.signatures');
-          if (hyperledgerId == null && signatures != null && (_.isArray(signatures) && signatures.length > 0)) {
-            docs.push(response.data);
-          }
-        }).catch((err) => {
-          debug('Failed to load certification', key);
-        }),
-        //Add audit to list if it IS signed and does NOT have a '/_meta/hyperledger_id' key
-        axios({
-          method: 'GET',
-          url: config.api+'/bookmarks/certifications/'+key+'/audit',
-          headers: {
-            Authorization: 'Bearer '+token
-          }
-        }).then((response) => {
-          const hyperledgerId = _.get(response, 'data._meta.hyperledger_id');
-          const signatures = _.get(response, 'data.signatures');
-          if (hyperledgerId == null && signatures != null && (_.isArray(signatures) && signatures.length > 0)) {
-            docs.push(response.data);
-          }
-        }).catch((err) => {
-          debug('Failed to load audit', key);
-        }),
-      );
-    }, {concurrency: 5});
-  }).then(() => {
-    //Check if docs are valid
-    var verifiedDocs = [];
-    return Promise.map(docs, (doc) => {
-      return verify(doc).then(() => {
-        verifiedDocs.push(doc);
+      //We need the certificate as well as the audit from the certification in order to build the hyperledger doc.
+      //Each doc in hyperledger represents a certification but includes audit AND certificate data.
+      //The hyperledger_id will be stored on the certification
+      //Only push certifications to hyperledger:
+      // - if they haven't been pushed already (do not contain a '/_meta/hyperledger_id' key)
+      // - if both the certificate and audit are signed.
+      // - if both the certificate and audit's signatures are verified.
+      // - if either the certificate or the audit have a `operation.gln` key under `organization`
+
+      //Get the certification to check if it has been pushed already
+      return axios({
+        method: 'GET',
+        url: config.api+'/bookmarks/certifications/'+key,
+        headers: {
+          Authorization: 'Bearer '+token
+        }
+      }).then((certificationResponse) => {
+        const hyperledgerId = _.get(certResponse, 'data._meta.hyperledger_id');
+        if (hyperledgerId) throw new Error('Certification already pushed to hyperledger');
+        const certification = certResponse.data;
+        return {certification: certResponse.data};
+      }).then(({certification}) => {
+        //Get the certificate and the audit from the certification
+        return Promise.join(
+          axios({
+            method: 'GET',
+            url: config.api+'/bookmarks/certifications/'+key+'/audit',
+            headers: {
+              Authorization: 'Bearer '+token
+            }
+          }),
+          axios({
+            method: 'GET',
+            url: config.api+'/bookmarks/certifications/'+key+'/certificate',
+            headers: {
+              Authorization: 'Bearer '+token
+            }
+          }),
+          (auditResponse, certificateResponse) => {
+            return {certification, audit: auditResponse.data, certificate: certificateResponse.data}
+          }).catch((err) => {
+            debug('Failed to load audit and/or certificate for', key);
+            throw new Error('Failed to load audit and/or certificate');
+          });
+      }).tap(({audit, certificate}) => {
+        //Check if the audit and certificate are signed and valid
+        const certSignatures = _.get(certResponse, 'data.signatures');
+        return Promise.join(isSignedAndValid(audit), isSignedAndValid(certificate));
+      }).tap(({audit, certificate}) => {
+        //Check if either the certificate or the audit have a `organization.gln`
+        if (!(_.get(audit, 'organization.gln')) && !(_.get(certificate, 'organization.gln'))) {
+          throw new Error('No organization.gln on audit or certificate');
+        }
       }).catch((err) => {
-        debug('Doc could not be verified:', doc, err.message)
+        return null; //Mark as null so it is removed.
       });
-    }).then(()=> {
-      return verifiedDocs;
-    });
+    }, {concurrency: 5});
+  }).then((docs) => {
+    return _.compact(docs); //Remove all the certifications that don't meet the requirements
   }).catch((error) => {
     if (error.response.status == 404) {
       debug('Certifications resource does not exist.')
@@ -81,7 +103,7 @@ function getDocsForHyperledger({token}) {
     } else {
       throw error;
     }
-  })
+  });
 }
 
 module.exports = getDocsForHyperledger;
