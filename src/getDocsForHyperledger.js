@@ -4,19 +4,24 @@ const _ = require('lodash');
 const Promise = require('bluebird');
 
 const config = require('../config.js')
-const debug = require('debug')('trellis-signature-service:getDocsForHyperledger')
+const debug = require('debug')('trellis-service-ibmfoodtrust:getDocsForHyperledger')
 /*
-  Get all certifications and audits that do not have a `hyperledger_id` in their meta
-  and also have a `signatures` key, and the signatures are valid.
-
+  Only push certifications to hyperledger:
+    - if they haven't been pushed already (do not contain a '/_meta/hyperledger_id' key)
+    - if both the certificate and audit are signed.
+    - if both the certificate and audit's signatures are verified.
+    - if either the certificate or the audit have a `organization.gln` key
   '/_meta/hyperledger_id'
 */
 
 function isSignedAndValid(doc) {
   return Promise.try(() => {
     const signatures = _.get(doc, 'signatures');
-    if (signatures == null || !_.isArray(certSignatures) || certSignatures.length == 0) {
+    if (signatures == null || !_.isArray(signatures) || signatures.length == 0) {
       throw new Error('Not signed.');
+    }
+    if (_.get(config, 'debug.verifySignatures') === false) {
+      return true;
     }
     return verify(doc);
   })
@@ -47,17 +52,19 @@ function getDocsForHyperledger({token}) {
       // - if either the certificate or the audit have a `organization.gln` key
 
       //Get the certification to check if it has been pushed already
-      return axios({
-        method: 'GET',
-        url: config.api+'/bookmarks/certifications/'+key,
-        headers: {
-          Authorization: 'Bearer '+token
-        }
+      return Promise.try(() => {
+        return axios({
+          method: 'GET',
+          url: config.api+'/bookmarks/certifications/'+key,
+          headers: {
+            Authorization: 'Bearer '+token
+          }
+        });
       }).then((certificationResponse) => {
-        const hyperledgerId = _.get(certResponse, 'data._meta.hyperledger_id');
+        const hyperledgerId = _.get(certificationResponse, 'data._meta.hyperledger_id');
         if (hyperledgerId) throw new Error('Certification already pushed to hyperledger');
-        const certification = certResponse.data;
-        return {certification: certResponse.data};
+        const certification = certificationResponse.data;
+        return {certification: certificationResponse.data};
       }).then(({certification}) => {
         //Get the certificate and the audit from the certification
         return Promise.join(
@@ -83,7 +90,7 @@ function getDocsForHyperledger({token}) {
           });
       }).tap(({audit, certificate}) => {
         //Check if the audit and certificate are signed and valid
-        const certSignatures = _.get(certResponse, 'data.signatures');
+        const certSignatures = _.get(certificate, 'data.signatures');
         return Promise.join(isSignedAndValid(audit), isSignedAndValid(certificate));
       }).tap(({audit, certificate}) => {
         //Check if either the certificate or the audit have a `organization.gln`
@@ -91,13 +98,14 @@ function getDocsForHyperledger({token}) {
           throw new Error('No organization.gln on audit or certificate');
         }
       }).catch((err) => {
+        debug('Error:', err.message);
         return null; //Mark as null so it is removed.
       });
     }, {concurrency: 5});
   }).then((docs) => {
     return _.compact(docs); //Remove all the certifications that don't meet the requirements
   }).catch((error) => {
-    if (error.response.status == 404) {
+    if (_.get(error, 'response.status') == 404) {
       debug('Certifications resource does not exist.')
       return [];
     } else {
