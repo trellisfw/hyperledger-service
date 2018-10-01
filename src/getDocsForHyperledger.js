@@ -23,7 +23,8 @@ function isSignedAndValid(doc) {
     if (_.get(config, 'debug.verifySignatures') === false) {
       return true;
     }
-    return verify(doc);
+    //Remove _id, _rev, and _meta from the doc when signing/verifying
+    return verify(_.omit(doc, ['_id', '_rev', '_meta']));
   })
 }
 
@@ -52,20 +53,28 @@ function getDocsForHyperledger({token}) {
       // - if either the certificate or the audit have a `organization.gln` key
 
       //Get the certification to check if it has been pushed already
-      return Promise.try(() => {
-        return axios({
+      return Promise.join(
+        axios({
           method: 'GET',
           url: config.api+'/bookmarks/certifications/'+key,
           headers: {
             Authorization: 'Bearer '+token
           }
-        });
-      }).then((certificationResponse) => {
-        const hyperledgerId = _.get(certificationResponse, 'data._meta.hyperledger_id');
-        if (hyperledgerId) throw new Error('Certification already pushed to hyperledger');
-        const certification = certificationResponse.data;
-        return {certification: certificationResponse.data};
-      }).then(({certification}) => {
+        }),
+        axios({
+          method: 'GET',
+          url: config.api+'/bookmarks/certifications/'+key+'/_meta',
+          headers: {
+            Authorization: 'Bearer '+token
+          }
+        }),
+        (certificationResponse, certificationMetaResponse) => {
+          return {certification: certificationResponse.data, certificationMeta: certificationMetaResponse.data}
+        }
+      ).tap(({certification, certificationMeta}) => {
+        if (!_.includes(config.supportedTypes, certification._type)) throw new Error('Certification type is not supported');
+        if (certificationMeta.hyperledger_id) throw new Error('Certification already pushed to hyperledger');
+      }).then(({certification, certificationMeta}) => {
         //Get the certificate and the audit from the certification
         return Promise.join(
           axios({
@@ -83,7 +92,7 @@ function getDocsForHyperledger({token}) {
             }
           }),
           (auditResponse, certificateResponse) => {
-            return {certification, audit: auditResponse.data, certificate: certificateResponse.data}
+            return {certification, certificationMeta, audit: auditResponse.data, certificate: certificateResponse.data}
           }).catch((err) => {
             debug('Failed to load audit and/or certificate for', key);
             throw new Error('Failed to load audit and/or certificate');
@@ -98,7 +107,7 @@ function getDocsForHyperledger({token}) {
           throw new Error('No organization.gln on audit or certificate');
         }
       }).catch((err) => {
-        debug('Error:', err.message);
+        debug(key, 'Error:', err.message);
         return null; //Mark as null so it is removed.
       });
     }, {concurrency: 5});

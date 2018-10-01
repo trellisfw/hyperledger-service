@@ -11,7 +11,7 @@ class IFT {
   putCertificate(audit, certificate) {
     return Promise.try(() => {
       debug('DEBUG MODE, not sending to hyperledger.');
-      return "12345";
+      return 'Test12345';
     })
   }
 };
@@ -20,5 +20,5 @@ class IFT {
 if (_.get(config, 'debug.sendToHyperledger') === false) {
   module.exports = IFT;
 } else {
-  module.exports = require('./ift/ift.js');
+  module.exports = require('trellisfw-ift');
 }
