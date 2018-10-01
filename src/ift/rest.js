@@ -21,10 +21,12 @@
  * @module src/ift/rest
  *
  */
+var Promise = require("bluebird");
 const axios = require("axios");
 const pretty = require("prettyjson");
 const fs = require("fs");
 const moment = require("moment");
+const readFile = Promise.promisify(require("fs").readFile);
 
 class REST {
   constructor(param = {}) {
@@ -85,6 +87,13 @@ class REST {
       scheme: "BRC Global Standard for Food Safety",
       schemeOwner: "BRC",
       scope: "Agents and Brokers: 01 – Raw milk and prepared foods"
+      //   customFieldList: [
+      //     {
+      //       label: "NA",
+      //       value: "http://serviopalacios.com/",
+      //       type: "url"
+      //     }
+      //   ]
     };
 
     self._certificate_id = "668d6fb0a6f4aa602a7c45cc00e309f6";
@@ -133,16 +142,24 @@ class REST {
       _audit.conditions_during_audit.FSMS_observed_date,
       _audit.conditions_during_audit.operation_observed_date
     );
-    self._certificate_template.auditType = ""; //_audit.scheme.name + " " + _audit.scheme.version;
-    self._certificate_template.auditedBy = _audit.certifying_body.auditor;
+    /* required field */
+    //self._certificate_template.auditType = ""; //_audit.scheme.name + " " + _audit.scheme.version;
+    self._certificate_template.auditedBy = _audit.certifying_body.auditor.name;
     self._certificate_template.certificateReferenceNumber =
       _audit.certificationid.id;
     self._certificate_template.certificationStatus = "valid"; //need to find this
     self._certificate_template.scheme = _audit.scheme.name;
     self._certificate_template.schemeOwner = _audit.scheme.name;
     self._certificate_template.scope = self._getScopeDescription(_audit.scope);
-    gln.push(_certificate.gln ? _certificate.gln : _audit.gln);
+
+    gln.push(
+      _certificate.organization.gln
+        ? _certificate.organization.gln
+        : _audit.organization.gln
+    );
     self._certificate_template.locationGLNList = gln;
+
+    /* include the customFieldList here */
 
     return self._certificate_template;
   } //_mapOada2Hyperledger
@@ -169,6 +186,21 @@ class REST {
   _printOnboardingToken() {
     let self = this;
     console.log("[ONBOARDING_TOKEN]", pretty.render(self._ONBOARDING_TOKEN));
+  }
+
+  async _readOnboardingTokenFromFile2() {
+    let self = this;
+    await readFile(self._onboarding_file_name, "utf8")
+      .then(function(data) {
+        self._ONBOARDING_TOKEN = JSON.parse(data);
+        console.log("[ONBOARDING_TOKEN] - [EXISTS] - [reading from file]");
+        self._printOnboardingToken();
+        return true;
+      })
+      .catch(function(err) {
+        console.log("[Error] - [reading from file]", err);
+        return false;
+      });
   }
 
   /**
@@ -203,7 +235,7 @@ class REST {
   async connect() {
     let self = this;
 
-    if (!(await self._readOnboardingTokenFromFile())) {
+    if (!(await self._readOnboardingTokenFromFile2())) {
       /* getting IBM Cloud IAM token */
       return self
         .post(self._iam_path, self._iam_header, self._iam_body)
