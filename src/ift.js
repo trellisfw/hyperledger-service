@@ -20,5 +20,6 @@ class IFT {
 if (_.get(config, 'debug.sendToHyperledger') === false) {
   module.exports = IFT;
 } else {
-  module.exports = require('trellisfw-ift');
+  //module.exports = require('trellisfw-ift');
+  module.exports = require('./ift/ift.js');
 }
