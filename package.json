@@ -1,6 +1,6 @@
 {
   "name": "trellisfw-service-ibmfoodtrust",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -26,7 +26,7 @@
   "homepage": "https://github.com/trellisfw/trellisfw-service-ibmfoodtrust#readme",
   "license": "Apache-2.0",
   "dependencies": {
-    "@trellisfw/signatures": "^0.1.8",
+    "@trellisfw/signatures": "^0.1.9",
     "axios": "^0.18.0",
     "bluebird": "^3.5.2",
     "debug": "^4.0.1",

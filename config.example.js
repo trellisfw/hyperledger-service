@@ -3,7 +3,7 @@ module.exports = {
   tokensFile: './tokens.json',
   interval: 30, //seconds
   supportedTypes: [
-    'application/vnd.trellisfw.certification.primusgfs.1+json'
+    'application/vnd.trellis.certification.primusgfs.1+json'
   ],
   ift: {
     organizationId: 'someIdHere',
@@ -11,6 +11,7 @@ module.exports = {
   },
   debug: {
     sendToHyperledger: true,
+    overrideGLN: '0728612177446',
     verifySignatures: true
   }
 }

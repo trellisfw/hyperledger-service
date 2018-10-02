@@ -10,7 +10,7 @@ const debug = require('debug')('trellis-service-ibmfoodtrust:getDocsForHyperledg
     - if they haven't been pushed already (do not contain a '/_meta/hyperledger_id' key)
     - if both the certificate and audit are signed.
     - if both the certificate and audit's signatures are verified.
-    - if either the certificate or the audit have a `organization.gln` key
+    - if either the certificate or the audit have a `organization.GLN` key
   '/_meta/hyperledger_id'
 */
 
@@ -51,7 +51,7 @@ function getDocsForHyperledger({token}) {
       // - if they haven't been pushed already (do not contain a '/_meta/hyperledger_id' key)
       // - if both the certificate and audit are signed.
       // - if both the certificate and audit's signatures are verified.
-      // - if either the certificate or the audit have a `organization.gln` key
+      // - if either the certificate or the audit have a `organization.GLN` key
 
       //Get the certification to check if it has been pushed already
       return Promise.join(
@@ -103,9 +103,9 @@ function getDocsForHyperledger({token}) {
         const certSignatures = _.get(certificate, 'data.signatures');
         return Promise.join(isSignedAndValid(audit), isSignedAndValid(certificate));
       }).tap(({audit, certificate}) => {
-        //Check if either the certificate or the audit have a `organization.gln`
-        if (!(_.get(audit, 'organization.gln')) && !(_.get(certificate, 'organization.gln'))) {
-          throw new Error('No organization.gln on audit or certificate');
+        //Check if either the certificate or the audit have a `organization.GLN`
+        if (!(_.get(audit, 'organization.GLN')) && !(_.get(certificate, 'organization.GLN'))) {
+          throw new Error('No organization.GLN on audit or certificate');
         }
       }).catch((err) => {
         debug(key, 'Error:', err.message);
