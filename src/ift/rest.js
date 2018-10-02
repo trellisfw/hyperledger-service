@@ -27,6 +27,8 @@ const pretty = require("prettyjson");
 const fs = require("fs");
 const moment = require("moment");
 const readFile = Promise.promisify(require("fs").readFile);
+const _ = require('lodash');
+const config = require('../../config.js');
 
 class REST {
   constructor(param = {}) {
@@ -152,11 +154,15 @@ class REST {
     self._certificate_template.schemeOwner = _audit.scheme.name;
     self._certificate_template.scope = self._getScopeDescription(_audit.scope);
 
-    gln.push(
-      _certificate.organization.gln
-        ? _certificate.organization.gln
-        : _audit.organization.gln
-    );
+    if (_.get(config, 'debug.overrideGLN')) {
+      gln.push(_.get(config, 'debug.overrideGLN'));
+    } else {
+      gln.push(
+        _certificate.organization.GLN
+          ? _certificate.organization.GLN
+          : _audit.organization.GLN
+      );
+    }
     self._certificate_template.locationGLNList = gln;
 
     /* include the customFieldList here */
