@@ -22,7 +22,6 @@
  *
  */
 const REST = require("./rest");
-const pretty = require("prettyjson");
 const debug = require('debug')('trellisfw-ift:ift')
 
 class IFT extends REST {

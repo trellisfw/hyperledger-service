@@ -21,12 +21,8 @@
  * @module src/ift/rest
  *
  */
-var Promise = require("bluebird");
 const axios = require("axios");
-const fs = require("fs");
 const moment = require("moment");
-const readFile = Promise.promisify(require("fs").readFile);
-const writeFile = Promise.promisify(require("fs").writeFile);
 const _ = require('lodash');
 const debug = require('debug')('trellisfw-ift:rest')
 const config = require('../../config.js');
@@ -223,7 +219,7 @@ class REST {
         });
     } else {
       debug("[ALREADY CONNECTED]");
-      return Promise.resolve("Connected");
+      return "Connected";
     } //else
   } //connect
 
