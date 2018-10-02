@@ -190,7 +190,7 @@ class REST {
 
   async _readOnboardingTokenFromFile2() {
     let self = this;
-    await readFile(self._onboarding_file_name, "utf8")
+    return await readFile(self._onboarding_file_name, "utf8")
       .then(function(data) {
         self._ONBOARDING_TOKEN = JSON.parse(data);
         console.log("[ONBOARDING_TOKEN] - [EXISTS] - [reading from file]");
@@ -275,7 +275,6 @@ class REST {
       console.log("[ALREADY CONNECTED]");
       //this._printOnboardingToken();
       self._connected = true;
-
       return Promise.resolve("Connected");
     } //else
   } //connect

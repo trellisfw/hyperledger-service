@@ -56,7 +56,7 @@ class IFT extends REST {
           return Promise.resolve(response.data.certificationId);
         })
         .catch(err => {
-          return Promise.reject;
+          return Promise.reject(err);
         });
     } else {
       console.log("[Not connected]");

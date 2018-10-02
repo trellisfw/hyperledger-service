@@ -23,6 +23,7 @@ function isSignedAndValid(doc) {
     if (_.get(config, 'debug.verifySignatures') === false) {
       return true;
     }
+    //console.log(JSON.stringify(doc, null, 2));
     //Remove _id, _rev, and _meta from the doc when signing/verifying
     return verify(_.omit(doc, ['_id', '_rev', '_meta']));
   })
