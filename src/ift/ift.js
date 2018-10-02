@@ -22,12 +22,11 @@
  *
  */
 const REST = require("./rest");
-const pretty = require("prettyjson");
+const debug = require('debug')('trellisfw-ift:ift')
 
 class IFT extends REST {
   constructor(param = {}) {
     super(param);
-    let self = this;
   } //constructor
 
   /**
@@ -38,12 +37,10 @@ class IFT extends REST {
    */
   putCertificate(_audit, _certificate) {
     let self = this;
-    console.log("[ADDING] - [CERTIFICATE]");
-    if (self._connected) {
-      if (!self._onboarding_token_in_header) {
-        self._buildCertificatesHeader();
-      }
-
+    debug("[ADDING] - [CERTIFICATE]");
+    //Connect if not connected already
+    return self.connect().then(() => {
+      //Try to send the certificate
       return self
         .post(
           self._certificates_path,
@@ -52,39 +49,27 @@ class IFT extends REST {
           self._mapOada2Hyperledger(_audit, _certificate)
         )
         .then(response => {
-          //console.log('newCertificate', response);
-          return Promise.resolve(response.data.certificationId);
-        })
-        .catch(err => {
-          return Promise.reject(err);
+          return response.data.certificationId;
         });
-    } else {
-      console.log("[Not connected]");
-    }
-  } //addCertificate
+    });
+  } //putCertificate
 
   /**
    * deletes a certificate
    */
   delCertificate(_certificationId) {
     let self = this;
-    console.log("[DELETING] - [CERTIFICATE]");
-    if (self._connected) {
-      if (!self._onboarding_token_in_header) {
-        self._buildCertificatesHeader();
-      }
+    debug("[DELETING] - [CERTIFICATE]");
+    return self.connect().then(() => {
       let _path =
         self._certificates_point_query_path +
         self._certificate_id +
         self._certificate_delete_path_leftover;
-
-      self.del(_path, self._certificates_header).then(response => {
-        console.log("delCertificates", response);
+      return self.del(_path, self._certificates_header).then(response => {
+        return response.data;
       });
-    } else {
-      console.log("[Not connected]");
-    }
-  } //deleteCertificate
+    })
+  } //delCertificate
 
   /**
    * returns the content of the _certificationId stored in the hyperledger
@@ -92,46 +77,18 @@ class IFT extends REST {
    */
   getCertificate(_certificationId) {
     let self = this;
-    console.log("[FETCHING] - [CERTIFICATE]");
-    if (self._connected) {
-      if (!self._onboarding_token_in_header) {
-        self._buildCertificatesHeader();
-      }
+    debug("[FETCHING] - [CERTIFICATE]");
+    return self.connect().then(() => {
       let _path = _certificationId
         ? self._certificates_point_query_path + _certificationId
         : self._certificates_path;
-      //console.log("Certificates Header", self._certificates_header);
-      self
+      return self
         .get(_path, self._certificates_header)
         .then(response => {
-          console.log("getCertificates", response);
           return response.data;
-        })
-        .catch(err => {
-          console.log("[Error]");
-          return null;
         });
-    } else {
-      console.log("[Not connected]");
-    }
+    });
   } //getCertificate
-
-  /**
-   *  waits for connection to be established then sends request for a certificate
-   **/
-  getCertificateManager(_certificationId) {
-    let self = this;
-    if (!self._connected) {
-      setTimeout(
-        self.getCertificate(_certificationId).then(response => {
-          console.log(response);
-        }),
-        100
-      );
-    } else {
-      return self.getCertificate();
-    }
-  } //getCertificateManager
 } //class
 
 /* exporting the module */
