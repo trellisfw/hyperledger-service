@@ -21,22 +21,16 @@
  * @module src/ift/rest
  *
  */
-var Promise = require("bluebird");
 const axios = require("axios");
-const pretty = require("prettyjson");
-const fs = require("fs");
 const moment = require("moment");
-const readFile = Promise.promisify(require("fs").readFile);
 const _ = require('lodash');
+const debug = require('debug')('trellisfw-ift:rest')
 const config = require('../../config.js');
 
 class REST {
   constructor(param = {}) {
     let self = this;
     self._path = param.path;
-    self._connected = false;
-    self._onboarding_token_in_header = false;
-    self._onboarding_file_name = "./onboarding_token";
 
     /* oraganization id */
     self._organization_id = param.organization_id || "";
@@ -61,7 +55,7 @@ class REST {
       "https://fs-identity-proxy-integration.mybluemix.net/exchange_token/v1/organization/" +
       self._organization_id;
     self._onboarding_header = { "Content-Type": "application/json" };
-    self._ONBOARDING_TOKEN = "";
+    self._ONBOARDING_TOKEN = null;
 
     /* Certificates */
     self._certificates_path =
@@ -123,7 +117,6 @@ class REST {
    */
   _getScopeDescription(_scope) {
     let productsObserved = "";
-    //console.log(_scope.products_observed);
     for (var product in _scope.products_observed) {
       productsObserved += _scope.products_observed[product].name + " || ";
     }
@@ -183,54 +176,8 @@ class REST {
         self._IAM_TOKEN[key] = tempToken[key];
       }
     });
-    console.log("--> [IBM_AIM_TOKEN] --> ", pretty.render(self._IAM_TOKEN));
+    debug("Received [IBM_AIM_TOKEN]");
   } //_getIAMTokenFromResponse
-
-  /**
-   * prints the onboarding token to console
-   */
-  _printOnboardingToken() {
-    let self = this;
-    console.log("[ONBOARDING_TOKEN]", pretty.render(self._ONBOARDING_TOKEN));
-  }
-
-  async _readOnboardingTokenFromFile2() {
-    let self = this;
-    return await readFile(self._onboarding_file_name, "utf8")
-      .then(function(data) {
-        self._ONBOARDING_TOKEN = JSON.parse(data);
-        console.log("[ONBOARDING_TOKEN] - [EXISTS] - [reading from file]");
-        self._printOnboardingToken();
-        return true;
-      })
-      .catch(function(err) {
-        console.log("[Error] - [reading from file]", err);
-        return false;
-      });
-  }
-
-  /**
-   * reads the onboarding token from file if present
-   */
-  async _readOnboardingTokenFromFile() {
-    let self = this;
-    self._result = false;
-    fs.readFile(self._onboarding_file_name, "utf8", function readFileCallback(
-      err,
-      data
-    ) {
-      if (err) {
-        console.log("[Error] - [reading from file]", err);
-      } else {
-        self._ONBOARDING_TOKEN = JSON.parse(data);
-        console.log("[ONBOARDING_TOKEN] - [EXISTS] - [reading from file]");
-        self._printOnboardingToken();
-        self._result = true;
-      }
-    });
-    // console.log('reading file-->', self._result);
-    return await self._result;
-  } //_readOnboardingTokenFromFile
 
   /**
    * connects to the IFT frawework
@@ -240,14 +187,13 @@ class REST {
    */
   async connect() {
     let self = this;
-
-    if (!(await self._readOnboardingTokenFromFile2())) {
+    if (!self._ONBOARDING_TOKEN) {
       /* getting IBM Cloud IAM token */
+      debug('[CONNECTING...]');
       return self
         .post(self._iam_path, self._iam_header, self._iam_body)
         .then(response => {
           self._getIAMTokenFromResponse(response.data);
-
           /* getting onboarding token */
           return self
             .post(
@@ -257,48 +203,51 @@ class REST {
               self._IAM_TOKEN
             )
             .then(response => {
+              debug("Received [ONBOARDING_TOKEN]");
               self._ONBOARDING_TOKEN = response.data;
-              self._connected = true;
-              console.log("[CONNECTED]");
-              fs.writeFile(
-                self._onboarding_file_name,
-                JSON.stringify(self._ONBOARDING_TOKEN),
-                response => {
-                  console.log("File written");
-                }
-              );
-              //self._printOnboardingToken();
+              self._buildCertificatesHeader()
+              debug("[CONNECTED]");
             })
             .catch(error => {
-              console.log("[ERROR] - [ONBOARDING TOKEN]", error);
+              debug("[ERROR] - [ONBOARDING TOKEN]", error);
+              throw error;
             });
         })
         .catch(error => {
-          console.log("[ERROR] - [IAM TOKEN]", error);
-          return null;
+          debug("[ERROR] - [IAM TOKEN]", error);
+          throw error;
         });
     } else {
-      console.log("[ALREADY CONNECTED]");
-      //this._printOnboardingToken();
-      self._connected = true;
-      return Promise.resolve("Connected");
+      debug("[ALREADY CONNECTED]");
+      return "Connected";
     } //else
   } //connect
+
+  clearToken() {
+    this._ONBOARDING_TOKEN = null;
+  }
 
   /**
    * GET request to IFT
    * @param {*} _path
    * @param {*} _headers
    */
-  get(_path, _headers) {
-    let self = this;
-
+  get(_path, _headers, _retries) {
     return axios({
       method: "get",
-      url: _path || self._path,
+      url: _path,
       headers: _headers || ""
     }).catch(err => {
-      console.log("[GET ERROR] ->", err);
+      return handleHTTPError(err).then(() => {
+        //Error was handled, retry.
+        _retries = (_retries == null) ?  1 : (_retries + 1);
+        if (_retries > 3) throw err;
+        debug('Error handled during GET retrying... attempt #' + _retries);
+        return this.get.call(this, _path, _headers, _retries);
+      }).catch((err) => {
+        debug("[GET ERROR] ->", err);
+        throw err;
+      })
     });
   } //get
 
@@ -307,13 +256,22 @@ class REST {
    * @param {*} _path
    * @param {*} _headers
    */
-  del(_path, _headers) {
+  del(_path, _headers, _retries) {
     return axios({
       method: "delete",
       url: _path,
       headers: _headers || ""
     }).catch(err => {
-      console.log("[DELETE ERROR] ->", err);
+      return handleHTTPError(err).then(() => {
+        //Error was handled, retry.
+        _retries = (_retries == null) ?  1 : (_retries + 1);
+        if (_retries > 3) throw err;
+        debug('Error handled during DELETE retrying... attempt #' + _retries);
+        return this.del.call(this, _path, _headers, _retries);
+      }).catch((err) => {
+        debug("[DELETE ERROR] ->", err);
+        throw err;
+      })
     });
   } //del
 
@@ -323,16 +281,23 @@ class REST {
    * @param {*} path
    * @param {*} data
    */
-  put(_path, data) {
-    let self = this;
-
+  put(_path, _headers, _data, _retries) {
     return axios({
       method: "put",
       data: _data,
       url: _path,
-      headers: opts.headers
+      headers: _headers
     }).catch(err => {
-      console.log("[PUT ERROR] ->", err);
+      return this.handleHTTPError(err).then(() => {
+        //Error was handled, retry.
+        _retries = (_retries == null) ?  1 : (_retries + 1);
+        if (_retries > 3) throw err;
+        debug('Error handled during PUT retrying... attempt #' + _retries);
+        return this.put.call(this, _path, _headers, _data, _retries);
+      }).catch((err) => {
+        debug("[PUT ERROR] ->", err);
+        throw err;
+      })
     });
   } //put
 
@@ -344,9 +309,7 @@ class REST {
    * @param {*} _params
    * @param {*} _data
    */
-  post(_path, _headers, _params, _data) {
-    let self = this;
-
+  post(_path, _headers, _params, _data, _retries) {
     return axios({
       method: "post",
       url: _path,
@@ -354,19 +317,35 @@ class REST {
       params: _params,
       headers: _headers || ""
     }).catch(err => {
-      console.log("[POST ERROR] ->", err);
+      return this.handleHTTPError(err).then(() => {
+        //Error was handled, retry.
+        _retries = (_retries == null) ?  1 : (_retries + 1);
+        if (_retries > 3) throw err;
+        debug('Error handled during POST retrying... attempt #' + _retries);
+        return this.post.call(this, _path, _headers, _params, _data, _retries);
+      }).catch((err) => {
+        debug("[POST ERROR] ->", err);
+        throw err;
+      })
     });
   } //post
+
+  handleHTTPError(error) {
+    if (_.get(error, 'response.status') == 401) {
+      //User Unauthorized: Invalid token provided
+      //Get a new token
+      debug('ONBOARDING_TOKEN EXPIRED');
+      this.clearToken();
+      return this.connect();
+    }
+    throw error;
+  }
 
   /**
    * includes the Authorization header in the IFT request
    */
   _buildCertificatesHeader() {
-    let self = this;
-    self._certificates_header = {
-      Authorization: "Bearer " + self._ONBOARDING_TOKEN["onboarding_token"]
-    };
-    self._onboarding_token_in_header = true;
+    this._certificates_header['Authorization'] = "Bearer " + this._ONBOARDING_TOKEN["onboarding_token"]
   }
 } //class
 
