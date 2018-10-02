@@ -77,13 +77,22 @@ describe('Check trellis signatures service', () => {
       })
       expect(certificationMeta.data).to.include.keys('hyperledger_id')
       var hyperledgerAudit = await _IFT.getCertificate(certificationMeta.data.hyperledger_id)
-      expect(hyperledgerAudit.metadata).to.include.keys(['locationGLNList'])
+      expect(hyperledgerAudit).to.include.keys(['metadata', 'timestamp', 'certificationId', 'attachments'])
+      expect(hyperledgerAudit.metadata).to.include.keys(['addendumsComments', 'auditStartDate', 'auditedBy', 'certificationnStatus', 'auditType', 'auditReferenceNumber', 'scope', 'scheme', 'schemeOwner'])
+      expect(hyperledfgerAudit.certificationId).to.equal(certificationMeta.data.hyperledger_id);
+      expect(hyperledfgerAudit.metadata.scheme).to.equal(audit.scheme.name)
+      expect(hyperledfgerAudit.metadata.schemeOwner).to.equal(audit.scheme.name)
+      expect(hyperledfgerAudit.metadata.scope).to.equal(audit.scope.description+ " || " +audit.scope.products_observed)
+      expect(hyperledfgerAudit.metadata.auditedBy).to.equal(audit.certification_body.auditor.name)
+      expect(hyperledfgerAudit.metadata.certificateReferenceNumber).to.equal(audit.certificationid.id)
+      expect(hyperledfgerAudit.metadata.locationGLNList[0].split('gln')[1]).to.equal(gln)
     })
+
     it('Clean Up', async function() {
       cleanUp()
     })
   })
-    /*
+
   describe(`Shouldn't put certifications into hyperledger that are missing a GLN on the audit/certificate`, async function() {
     it(`Create test certification`, async function() {
       this.timeout(5000);
@@ -144,6 +153,5 @@ describe('Check trellis signatures service', () => {
       expect(certificationMeta.data).not.to.include.keys('hyperledger_id')
     })
   })   
-    */
 
 })
