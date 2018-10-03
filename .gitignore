@@ -5,3 +5,4 @@ node_modules
 config.js
 tokens.json
 onboarding_token
+test/config.js

@@ -1,13 +1,13 @@
 var Promise = require('bluebird');
 var axios = require('axios');
-var TOKEN = '51w5jCXPr15m';
+var config = require('./config');
 
 function oadaRequest({method, url, data, type}) {
   var request = {
     method,
     url,
     headers: {
-      'Authorization': 'Bearer '+TOKEN,
+      'Authorization': 'Bearer '+config.token,
     }
   }
   if (type) request.headers['Content-Type'] = type;
