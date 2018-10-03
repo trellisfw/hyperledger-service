@@ -68,7 +68,7 @@ describe('Check trellis signatures service', () => {
 
     it('Should create a hyperledger_id on the certification and in Hyperledger itself', async function() {
       this.timeout(65000)
-      this.retries(10);
+      this.retries(12);
       await Promise.delay(5000)
       var audit = pgfsTemplate;
       var certificationMeta = await oadaRequest({
@@ -76,7 +76,7 @@ describe('Check trellis signatures service', () => {
         url: 'https://api.trellis.one/bookmarks/certifications/'+certificationId+'/_meta',
       })
       expect(certificationMeta.data).to.include.keys('hyperledger_id')
-      try {
+      if (certificationMeta.data.hyperledger_id) {
         var hyperledgerAudit = await _IFT.getCertificate(certificationMeta.data.hyperledger_id)
         expect(hyperledgerAudit).to.include.keys(['metadata', 'timestamp', 'certificationId', 'attachments'])
         expect(hyperledgerAudit.metadata).to.include.keys(['addendumsComments', 'auditStartDate', 'auditedBy', 'certificationStatus', 'auditType', 'auditReferenceNumber', 'scope', 'scheme', 'schemeOwner'])
@@ -90,9 +90,7 @@ describe('Check trellis signatures service', () => {
         expect(hyperledgerAudit.metadata.auditedBy).to.equal(audit.certifying_body.auditor.name)
         expect(hyperledgerAudit.metadata.certificateReferenceNumber).to.equal(audit.certificationid.id)
         expect(hyperledgerAudit.metadata.locationGLNList[0].split('gln')[1]).to.equal(config.gln)
-      } catch(err) {
-        console.log(err)
-      }
+      } 
     })
 
     it('Clean Up', async function() {
@@ -117,8 +115,40 @@ describe('Check trellis signatures service', () => {
 
     it(`Shouldn't have a hyperleger_id`, async function() {
       this.timeout(65000)
-      this.retries(7);
-      await Promise.delay(5000)
+      await Promise.delay(60000)
+      var certificationMeta = await oadaRequest({
+        method: 'get',
+        url: 'https://api.trellis.one/bookmarks/certifications/'+certificationId+'/_meta',
+      })
+
+      expect(certificationMeta.data).not.to.include.keys('hyperledger_id')
+    })
+
+    it('Clean Up', async function() {
+      cleanUp()
+    })
+
+  })
+
+  describe(`Test sending an integer type gln`, async function() {
+    it(`Create test certification`, async function() {
+      this.timeout(5000);
+      var audit = pgfsTemplate;
+      var certificate = _.cloneDeep(pgfsTemplate);
+      certificate.certificate_validity_period = {
+        start: "2016-04-11",
+        end: "2017-04-11"
+      }
+      delete certificate.sections;
+      delete certificate.control_points;
+      certificate.organization.GLN = parseInt(config.gln);
+      result = await makeCertification(audit, certificate)
+      certificationId = result.certification_id.replace(/^resources\//, '');
+    })
+
+    it(`Shouldn't have a hyperleger_id`, async function() {
+      this.timeout(65000)
+      await Promise.delay(60000)
       var certificationMeta = await oadaRequest({
         method: 'get',
         url: 'https://api.trellis.one/bookmarks/certifications/'+certificationId+'/_meta',
@@ -144,20 +174,45 @@ describe('Check trellis signatures service', () => {
       }
       delete certificate.sections;
       delete certificate.control_points;
-      result = await makeCertification(audit, certificate)
+      var analytics_url = "https://test.analyticsexample.com";
+      certificate.organization.GLN = config.gln;
+      result = await makeCertification(audit, certificate, {analytics_url})
       certificationId = result.certification_id.replace(/^resources\//, '');
     })
 
     it(`Should include have a hyperleger_id`, async function() {
       this.timeout(65000)
-      this.retries(7);
+      this.retries(12);
+
+      var audit = pgfsTemplate;
+      var analytics_url = "https://test.analyticsexample.com";
       await Promise.delay(5000)
       var certificationMeta = await oadaRequest({
         method: 'get',
         url: 'https://api.trellis.one/bookmarks/certifications/'+certificationId+'/_meta',
       })
+      
+      expect(certificationMeta.data).to.include.keys('hyperledger_id')
+      if (certificationMeta.data.hyperledger_id) {
+        var hyperledgerAudit = await _IFT.getCertificate(certificationMeta.data.hyperledger_id)
+        expect(hyperledgerAudit).to.include.keys(['metadata', 'timestamp', 'certificationId', 'attachments'])
+        expect(hyperledgerAudit.metadata).to.include.keys(['addendumsComments', 'auditStartDate', 'auditedBy', 'certificationStatus', 'auditType', 'auditReferenceNumber', 'scope', 'scheme', 'schemeOwner'])
+        expect(hyperledgerAudit.certificationId).to.equal(certificationMeta.data.hyperledger_id);
+        expect(hyperledgerAudit.metadata.scheme).to.equal(audit.scheme.name)
+        expect(hyperledgerAudit.metadata.schemeOwner).to.equal(audit.scheme.name)
+        expect(hyperledgerAudit.metadata.scope).to.have.string(audit.scope.description)
+        audit.scope.products_observed.forEach((item) => {
+          expect(hyperledgerAudit.metadata.scope).to.have.string(item.name)
+        })
+        expect(hyperledgerAudit.metadata.auditedBy).to.equal(audit.certifying_body.auditor.name)
+        expect(hyperledgerAudit.metadata.certificateReferenceNumber).to.equal(audit.certificationid.id)
+        expect(hyperledgerAudit.metadata.locationGLNList[0].split('gln')[1]).to.equal(config.gln)
+        expect(hyperledgerAudit.metadata.customFieldList[0].value).to.equal(analytics_url)
+      }
+    })
 
-      expect(certificationMeta.data).not.to.include.keys('hyperledger_id')
+    it('Clean Up', async function() {
+      cleanUp()
     })
   })   
 
