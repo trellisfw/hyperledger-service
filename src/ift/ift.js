@@ -35,7 +35,7 @@ class IFT extends REST {
    * then it send the content to the IFT
    * @param {*} _audit, _certificate
    */
-  putCertificate(_audit, _certificate) {
+  putCertificate(_audit, _certificate, _analytics_url) {
     let self = this;
     debug("[ADDING] - [CERTIFICATE]");
     //Connect if not connected already
@@ -46,7 +46,7 @@ class IFT extends REST {
           self._certificates_path,
           self._certificates_header,
           "",
-          self._mapOada2Hyperledger(_audit, _certificate)
+          self._mapOada2Hyperledger(_audit, _certificate, _analytics_url)
         )
         .then(response => {
           return response.data.certificationId;

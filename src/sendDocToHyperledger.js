@@ -14,7 +14,7 @@ const ift = new _IFT({
 function sendDocToHyperledger({token, certificationMeta, audit, certificate}) {
   const certificationId = certificationMeta._id.replace('resources/', '').replace('/_meta', '');
   //Send to hyperledger using ift
-  return ift.putCertificate(audit, certificate).then((hyperledgerId) => {
+  return ift.putCertificate(audit, certificate, _.get(certificationMeta, 'analytics_url')).then((hyperledgerId) => {
     //Add hyperledger_id to certification
     debug(certificationId, 'Successfully pushed to hyperledger. hyperledger_id:', hyperledgerId);
     return axios({

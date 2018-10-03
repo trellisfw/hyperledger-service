@@ -132,8 +132,9 @@ class REST {
    * maps the primusgfs format to IFT data model
    * @param {*} _audit primusgfs format
    * @param {*} _certificate primusgfs format
+   * @param {string} [_analytics_url] - url to analytics website (optional)
    */
-  _mapOada2Hyperledger(_audit, _certificate) {
+  _mapOada2Hyperledger(_audit, _certificate, _analytics_url) {
     let self = this;
     let gln = [];
     self._certificate_template.addendumsComments = _audit._id;
@@ -165,9 +166,8 @@ class REST {
     self._certificate_template.locationGLNList = gln; //(*)
 
     /* customFieldList */
-    self._certificate_template.customFieldList[0].value = _certificate._meta
-      .analytics_url
-      ? _certificate._meta.analytics_url
+    self._certificate_template.customFieldList[0].value = _analytics_url
+      ? _analytics_url
       : self._certificate_template.customFieldList[0].value;
 
     return self._certificate_template;
