@@ -11,10 +11,14 @@ var result;
 var certificationId;
 var _IFT;
 
-async function cleanUp() {
+async function cleanUp(result) {
   await oadaRequest({
     method: 'delete',
     url: 'https://api.trellis.one/bookmarks/certifications',
+  })
+  await oadaRequest({
+    method: 'delete',
+    url: 'https://api.trellis.one/'+result.certifications_id
   })
   await oadaRequest({
     method: 'delete',
@@ -45,13 +49,15 @@ function oadaRequest({method, url, data, type}) {
 
 describe('Check trellis signatures service', () => {
 
-  describe('Should create certifications, a certification, certificate, and audit first', async function() {
-    before('Connect to IBM Food Trust', async function() {
-      _IFT = new ift(config.ift)
-      await _IFT.connect()
-    })
+  before('Connect to IBM Food Trust', async function() {
+    _IFT = new ift(config.ift)
+    await _IFT.connect()
+  })
 
-    it('Create test certification', async function() {
+  describe('Should create certifications, a certification, certificate, and audit first', async function() {
+    var result;
+
+    before('Create test certification', async function() {
       this.timeout(5000);
       var audit = pgfsTemplate;
       var certificate = _.cloneDeep(pgfsTemplate);
@@ -63,13 +69,14 @@ describe('Check trellis signatures service', () => {
       delete certificate.control_points;
       certificate.organization.GLN = config.gln;
       result = await makeCertification(audit, certificate)
-      certificationId = result.certification_id.replace(/^resources\//, '');
     })
 
     it('Should create a hyperledger_id on the certification and in Hyperledger itself', async function() {
       this.timeout(65000)
       this.retries(12);
       await Promise.delay(5000)
+
+      var certificationId = result.certification_id.replace(/^resources\//, '');
       var audit = pgfsTemplate;
       var certificationMeta = await oadaRequest({
         method: 'get',
@@ -93,13 +100,15 @@ describe('Check trellis signatures service', () => {
       } 
     })
 
-    it('Clean Up', async function() {
-      cleanUp()
+    after('Clean Up', async function() {
+      cleanUp(result)
     })
   })
 
   describe(`Shouldn't put certifications into hyperledger that are missing a GLN on the audit/certificate`, async function() {
-    it(`Create test certification`, async function() {
+    var result;
+
+    before(`Create test certification`, async function() {
       this.timeout(5000);
       var audit = pgfsTemplate;
       var certificate = _.cloneDeep(pgfsTemplate);
@@ -110,12 +119,13 @@ describe('Check trellis signatures service', () => {
       delete certificate.sections;
       delete certificate.control_points;
       result = await makeCertification(audit, certificate)
-      certificationId = result.certification_id.replace(/^resources\//, '');
     })
 
     it(`Shouldn't have a hyperleger_id`, async function() {
       this.timeout(65000)
       await Promise.delay(60000)
+      
+      var certificationId = result.certification_id.replace(/^resources\//, '');
       var certificationMeta = await oadaRequest({
         method: 'get',
         url: 'https://api.trellis.one/bookmarks/certifications/'+certificationId+'/_meta',
@@ -124,14 +134,16 @@ describe('Check trellis signatures service', () => {
       expect(certificationMeta.data).not.to.include.keys('hyperledger_id')
     })
 
-    it('Clean Up', async function() {
-      cleanUp()
+    after('Clean Up', async function() {
+      cleanUp(result)
     })
 
   })
 
   describe(`Test sending an integer type gln`, async function() {
-    it(`Create test certification`, async function() {
+    var result;
+
+    before(`Create test certification`, async function() {
       this.timeout(5000);
       var audit = pgfsTemplate;
       var certificate = _.cloneDeep(pgfsTemplate);
@@ -143,12 +155,13 @@ describe('Check trellis signatures service', () => {
       delete certificate.control_points;
       certificate.organization.GLN = parseInt(config.gln);
       result = await makeCertification(audit, certificate)
-      certificationId = result.certification_id.replace(/^resources\//, '');
     })
 
     it(`Shouldn't have a hyperleger_id`, async function() {
       this.timeout(65000)
       await Promise.delay(60000)
+
+      var certificationId = result.certification_id.replace(/^resources\//, '');
       var certificationMeta = await oadaRequest({
         method: 'get',
         url: 'https://api.trellis.one/bookmarks/certifications/'+certificationId+'/_meta',
@@ -157,14 +170,15 @@ describe('Check trellis signatures service', () => {
       expect(certificationMeta.data).not.to.include.keys('hyperledger_id')
     })
 
-    it('Clean Up', async function() {
-      cleanUp()
+    before('Clean Up', async function() {
+      cleanUp(result)
     })
 
   })
 
   describe('Should put a CustomFieldList into Hyperledger when analytics url is present in _meta', async function() {
-    it(`Create test certification`, async function() {
+    var result;
+    before(`Create test certification`, async function() {
       this.timeout(5000);
       var audit = pgfsTemplate;
       var certificate = _.cloneDeep(pgfsTemplate);
@@ -211,8 +225,8 @@ describe('Check trellis signatures service', () => {
       }
     })
 
-    it('Clean Up', async function() {
-      cleanUp()
+    after('Clean Up', async function() {
+      cleanUp(result)
     })
   })   
 
