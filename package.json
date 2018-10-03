@@ -3,7 +3,8 @@
   "version": "0.1.4",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "test": "mocha -w ./test/**/*.test.js"
   },
   "repository": {
     "type": "git",
@@ -29,8 +30,10 @@
     "@trellisfw/signatures": "^0.1.9",
     "axios": "^0.18.0",
     "bluebird": "^3.5.2",
+    "chai": "^4.2.0",
     "debug": "^4.0.1",
     "lodash": "^4.17.11",
+    "mocha": "^5.2.0",
     "moment": "^2.22.2",
     "trellisfw-ift": "0.0.1"
   }

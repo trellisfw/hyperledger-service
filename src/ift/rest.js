@@ -19,18 +19,23 @@
  * @author Servio Palacios
  * REST API for IBM Food Trust (IFT) - Super Class.
  * @module src/ift/rest
- *
  */
 const axios = require("axios");
 const moment = require("moment");
-const _ = require('lodash');
-const debug = require('debug')('trellisfw-ift:rest')
-const config = require('../../config.js');
+const _ = require("lodash");
+const debug = require("debug")("trellisfw-ift:rest");
+const config = require("../../config.js");
 
 class REST {
   constructor(param = {}) {
     let self = this;
     self._path = param.path;
+
+    /* Format for IBM Food Trust Identifier Fields */
+    /* Location */
+    /* https://github.com/IBM/IFT-Developer-Zone/wiki/doc-IBMFoodTrust-ID-(identifiers) */
+    /* urn:ibm:ift:location:loc:<Company Prefix>.<Location Reference> */
+    self._location_prefix = "urn:ibm:ift:location:loc:7457934435.gln";
 
     /* oraganization id */
     self._organization_id = param.organization_id || "";
@@ -64,6 +69,7 @@ class REST {
       "https://fs-certificate-management-integration.mybluemix.net/v2/certifications/";
     self._certificates_header = { Accept: "application/json" };
 
+    /* certificate template from IBM Food Trust */
     self._certificate_template = {
       addendumsComments: "trellis-certification-test-03",
       announced: "Announced",
@@ -82,14 +88,14 @@ class REST {
       productHandlingIncluded: "false",
       scheme: "BRC Global Standard for Food Safety",
       schemeOwner: "BRC",
-      scope: "Agents and Brokers: 01 – Raw milk and prepared foods"
-      //   customFieldList: [
-      //     {
-      //       label: "NA",
-      //       value: "http://serviopalacios.com/",
-      //       type: "url"
-      //     }
-      //   ]
+      scope: "Agents and Brokers: 01 – Raw milk and prepared foods",
+      customFieldList: [
+        {
+          label: "NA",
+          value: "http://certificateurl/",
+          type: "url"
+        }
+      ]
     };
 
     self._certificate_id = "668d6fb0a6f4aa602a7c45cc00e309f6";
@@ -106,7 +112,6 @@ class REST {
   _compareDates(first, second) {
     let _first = first.start.substring(0, 10);
     let _second = second.start.substring(0, 10);
-    //return moment(first.start).isAfter(second.start) ? _first : _second;
     return moment(_first).isAfter(_second) ? _first : _second;
   }
 
@@ -124,41 +129,46 @@ class REST {
   }
 
   /**
-   * maps the prmusgfs format to IFT data model
-   * include the trellis resource id in the primusgfs
-   * "trellis://<domain>/resources/<id>"
-   * @param {*} _primusgfs
+   * maps the primusgfs format to IFT data model
+   * @param {*} _audit primusgfs format
+   * @param {*} _certificate primusgfs format
    */
   _mapOada2Hyperledger(_audit, _certificate) {
     let self = this;
     let gln = [];
     self._certificate_template.addendumsComments = _audit._id;
     self._certificate_template.auditStartDate = self._compareDates(
+      //(*)
       _audit.conditions_during_audit.FSMS_observed_date,
       _audit.conditions_during_audit.operation_observed_date
     );
-    /* required field */
+    /* required field (*) */
     //self._certificate_template.auditType = ""; //_audit.scheme.name + " " + _audit.scheme.version;
-    self._certificate_template.auditedBy = _audit.certifying_body.auditor.name;
+    self._certificate_template.auditedBy = _audit.certifying_body.auditor.name; //(*)
     self._certificate_template.certificateReferenceNumber =
-      _audit.certificationid.id;
-    self._certificate_template.certificationStatus = "valid"; //need to find this
-    self._certificate_template.scheme = _audit.scheme.name;
+      _audit.certificationid.id; //(*)
+    self._certificate_template.certificationStatus = "valid";
+    self._certificate_template.scheme = _audit.scheme.name; //(*)
     self._certificate_template.schemeOwner = _audit.scheme.name;
-    self._certificate_template.scope = self._getScopeDescription(_audit.scope);
+    self._certificate_template.scope = self._getScopeDescription(_audit.scope); //(*)
 
-    if (_.get(config, 'debug.overrideGLN')) {
-      gln.push(_.get(config, 'debug.overrideGLN'));
+    if (_.get(config, "debug.overrideGLN")) {
+      //(*)
+      gln.push(self._location_prefix + _.get(config, "debug.overrideGLN"));
     } else {
       gln.push(
         _certificate.organization.GLN
-          ? _certificate.organization.GLN
-          : _audit.organization.GLN
+          ? self._location_prefix + _certificate.organization.GLN
+          : self._location_prefix + _audit.organization.GLN
       );
     }
-    self._certificate_template.locationGLNList = gln;
+    self._certificate_template.locationGLNList = gln; //(*)
 
-    /* include the customFieldList here */
+    /* customFieldList */
+    self._certificate_template.customFieldList[0].value = _certificate._meta
+      .analytics_url
+      ? _certificate._meta.analytics_url
+      : self._certificate_template.customFieldList[0].value;
 
     return self._certificate_template;
   } //_mapOada2Hyperledger
@@ -182,14 +192,14 @@ class REST {
   /**
    * connects to the IFT frawework
    * - it generates a IAM IBM Cloud Token
-   * - it exchanges tje IAM Token for an Onboarding Token
+   * - it exchanges the IAM Token for an Onboarding Token
    * - all other request can use the Authorization header including the Bearer and the Onboarding Token
    */
   async connect() {
     let self = this;
     if (!self._ONBOARDING_TOKEN) {
       /* getting IBM Cloud IAM token */
-      debug('[CONNECTING...]');
+      debug("[CONNECTING...]");
       return self
         .post(self._iam_path, self._iam_header, self._iam_body)
         .then(response => {
@@ -205,7 +215,7 @@ class REST {
             .then(response => {
               debug("Received [ONBOARDING_TOKEN]");
               self._ONBOARDING_TOKEN = response.data;
-              self._buildCertificatesHeader()
+              self._buildCertificatesHeader();
               debug("[CONNECTED]");
             })
             .catch(error => {
@@ -238,16 +248,18 @@ class REST {
       url: _path,
       headers: _headers || ""
     }).catch(err => {
-      return handleHTTPError(err).then(() => {
-        //Error was handled, retry.
-        _retries = (_retries == null) ?  1 : (_retries + 1);
-        if (_retries > 3) throw err;
-        debug('Error handled during GET retrying... attempt #' + _retries);
-        return this.get.call(this, _path, _headers, _retries);
-      }).catch((err) => {
-        debug("[GET ERROR] ->", err);
-        throw err;
-      })
+      return handleHTTPError(err)
+        .then(() => {
+          //Error was handled, retry.
+          _retries = _retries == null ? 1 : _retries + 1;
+          if (_retries > 3) throw err;
+          debug("Error handled during GET retrying... attempt #" + _retries);
+          return this.get.call(this, _path, _headers, _retries);
+        })
+        .catch(err => {
+          debug("[GET ERROR] ->", err);
+          throw err;
+        });
     });
   } //get
 
@@ -262,16 +274,18 @@ class REST {
       url: _path,
       headers: _headers || ""
     }).catch(err => {
-      return handleHTTPError(err).then(() => {
-        //Error was handled, retry.
-        _retries = (_retries == null) ?  1 : (_retries + 1);
-        if (_retries > 3) throw err;
-        debug('Error handled during DELETE retrying... attempt #' + _retries);
-        return this.del.call(this, _path, _headers, _retries);
-      }).catch((err) => {
-        debug("[DELETE ERROR] ->", err);
-        throw err;
-      })
+      return handleHTTPError(err)
+        .then(() => {
+          //Error was handled, retry.
+          _retries = _retries == null ? 1 : _retries + 1;
+          if (_retries > 3) throw err;
+          debug("Error handled during DELETE retrying... attempt #" + _retries);
+          return this.del.call(this, _path, _headers, _retries);
+        })
+        .catch(err => {
+          debug("[DELETE ERROR] ->", err);
+          throw err;
+        });
     });
   } //del
 
@@ -288,16 +302,18 @@ class REST {
       url: _path,
       headers: _headers
     }).catch(err => {
-      return this.handleHTTPError(err).then(() => {
-        //Error was handled, retry.
-        _retries = (_retries == null) ?  1 : (_retries + 1);
-        if (_retries > 3) throw err;
-        debug('Error handled during PUT retrying... attempt #' + _retries);
-        return this.put.call(this, _path, _headers, _data, _retries);
-      }).catch((err) => {
-        debug("[PUT ERROR] ->", err);
-        throw err;
-      })
+      return this.handleHTTPError(err)
+        .then(() => {
+          //Error was handled, retry.
+          _retries = _retries == null ? 1 : _retries + 1;
+          if (_retries > 3) throw err;
+          debug("Error handled during PUT retrying... attempt #" + _retries);
+          return this.put.call(this, _path, _headers, _data, _retries);
+        })
+        .catch(err => {
+          debug("[PUT ERROR] ->", err);
+          throw err;
+        });
     });
   } //put
 
@@ -317,24 +333,38 @@ class REST {
       params: _params,
       headers: _headers || ""
     }).catch(err => {
-      return this.handleHTTPError(err).then(() => {
-        //Error was handled, retry.
-        _retries = (_retries == null) ?  1 : (_retries + 1);
-        if (_retries > 3) throw err;
-        debug('Error handled during POST retrying... attempt #' + _retries);
-        return this.post.call(this, _path, _headers, _params, _data, _retries);
-      }).catch((err) => {
-        debug("[POST ERROR] ->", err);
-        throw err;
-      })
+      return this.handleHTTPError(err)
+        .then(() => {
+          //Error was handled, retry.
+          _retries = _retries == null ? 1 : _retries + 1;
+          if (_retries > 3) throw err;
+          debug("Error handled during POST retrying... attempt #" + _retries);
+          return this.post.call(
+            this,
+            _path,
+            _headers,
+            _params,
+            _data,
+            _retries
+          );
+        })
+        .catch(err => {
+          debug("[POST ERROR] ->", err);
+          throw err;
+        });
     });
   } //post
 
+  /**
+   * handles the case when token has expired
+   * otherwise throws error
+   * @param {*} error
+   */
   handleHTTPError(error) {
-    if (_.get(error, 'response.status') == 401) {
+    if (_.get(error, "response.status") == 401) {
       //User Unauthorized: Invalid token provided
       //Get a new token
-      debug('ONBOARDING_TOKEN EXPIRED');
+      debug("ONBOARDING_TOKEN EXPIRED");
       this.clearToken();
       return this.connect();
     }
@@ -345,7 +375,8 @@ class REST {
    * includes the Authorization header in the IFT request
    */
   _buildCertificatesHeader() {
-    this._certificates_header['Authorization'] = "Bearer " + this._ONBOARDING_TOKEN["onboarding_token"]
+    this._certificates_header["Authorization"] =
+      "Bearer " + this._ONBOARDING_TOKEN["onboarding_token"];
   }
 } //class
 
